@@ -12,8 +12,7 @@ import org.jetbrains.kotlin.konan.properties.propertyList
 import org.jetbrains.kotlin.konan.properties.saveProperties
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS
-import java.io.FileInputStream
-import java.io.IOException
+import org.jetbrains.report.json.*
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.net.HttpURLConnection
@@ -45,6 +44,9 @@ val Project.testOutputStdlib
 
 val Project.testOutputFramework
     get() = (findProperty("testOutputFramework") as File).toString()
+
+val Project.testOutputExternal
+    get() = (findProperty("testOutputExternal") as File).toString()
 
 val Project.kotlinNativeDist
     get() = this.rootProject.file(this.findProperty("org.jetbrains.kotlin.native.home")
@@ -108,7 +110,7 @@ fun Task.dependsOnDist() {
         val target = project.testTarget
         if (target != HostManager.host) {
             // if a test_target property is set then tests should depend on a crossDist
-            // otherwise runtime components would not be build for a target.
+            // otherwise, runtime components would not be build for a target.
             dependsOn(rootTasks.getByName("${target.name}CrossDist"))
         }
     }
@@ -207,7 +209,7 @@ fun getBuild(buildLocator: String, user: String, password: String) =
 fun sendGetRequest(url: String, username: String? = null, password: String? = null) : String {
     val connection = URL(url).openConnection() as HttpURLConnection
     if (username != null && password != null) {
-        val auth = Base64.getEncoder().encode((username + ":" + password).toByteArray()).toString(Charsets.UTF_8)
+        val auth = Base64.getEncoder().encode(("$username:$password").toByteArray()).toString(Charsets.UTF_8)
         connection.addRequestProperty("Authorization", "Basic $auth")
     }
     connection.setRequestProperty("Accept", "application/json");
@@ -254,8 +256,8 @@ fun compileSwift(project: Project, target: KonanTarget, sources: List<String>, o
         |stdout: $stdOut
         |stderr: $stdErr
         """.trimMargin())
-    check(exitCode == 0, { "Compilation failed" })
-    check(output.toFile().exists(), { "Compiler swiftc hasn't produced an output file: $output" })
+    check(exitCode == 0) { "Compilation failed" }
+    check(output.toFile().exists()) { "Compiler swiftc hasn't produced an output file: $output" }
 }
 
 fun targetSupportsMimallocAllocator(targetName: String) =
