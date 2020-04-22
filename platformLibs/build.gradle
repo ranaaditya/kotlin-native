@@ -22,6 +22,12 @@ buildscript {
     }
 
     dependencies {
+        constraints {
+            classpath('org.jetbrains.kotlin:kotlin-reflect') { version { strictly kotlinVersion } }
+            classpath('org.jetbrains.kotlin:kotlin-stdlib-common') { version { strictly kotlinVersion } }
+            classpath('org.jetbrains.kotlin:kotlin-stdlib') { version { strictly kotlinVersion } }
+        }
+
         classpath "org.jetbrains.kotlin:kotlin-native-gradle-plugin:$gradlePluginVersion"
         classpath "org.jetbrains.kotlin:kotlin-native-build-tools:$konanVersion"
     }
@@ -92,7 +98,7 @@ project.rootProject.ext.platformManager.enabled.each { target ->
 
         def libTask = konanArtifacts."$libName"."$targetName"
         libTask.dependsOn df.config.depends.collect{ defFileToLibName(targetName, it) }
-        libTask.dependsOn ":${targetName}CrossDist"
+//        libTask.dependsOn ":${targetName}CrossDist"
         libTask.enableParallel = true
 
         task "$libName"(type: KlibInstall) {
