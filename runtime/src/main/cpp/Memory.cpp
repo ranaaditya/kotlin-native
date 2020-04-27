@@ -85,13 +85,13 @@ constexpr size_t kGcThreshold = 8 * 1024;
 // increase GC threshold by 1.5 times.
 constexpr double kGcToComputeRatioThreshold = 0.5;
 // Never exceed this value when increasing GC threshold.
-constexpr size_t kMaxErgonomicThreshold = 32 * 1024;
+constexpr size_t kMaxErgonomicThreshold = 64 * 1024;
 // Threshold of size for toFree set, triggering actual cycle collector.
-constexpr size_t kMaxToFreeSize = 8 * 1024;
+constexpr size_t kMaxToFreeSize = 32 * 1024;
 // How many elements in finalizer queue allowed before cleaning it up.
 constexpr size_t kFinalizerQueueThreshold = 32;
 // If allocated that much memory since last GC - force new GC.
-constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
+constexpr size_t kMaxGcAllocThreshold = 32 * 1024 * 1024;
 #endif  // USE_GC
 
 typedef KStdUnorderedSet<ContainerHeader*> ContainerHeaderSet;
@@ -1165,9 +1165,9 @@ inline void initGcThreshold(MemoryState* state, uint32_t gcThreshold) {
   state->toRelease->reserve(gcThreshold);
 }
 
-inline void increaseGcThreshold(MemoryState* state) {
+inline void increaseGcThreshold(MemoryState* state, bool force = false) {
   auto newThreshold = state->gcThreshold * 3 / 2 + 1;
-  if (newThreshold <= kMaxErgonomicThreshold) {
+  if (force || newThreshold <= kMaxErgonomicThreshold) {
     initGcThreshold(state, newThreshold);
   }
 }
@@ -1630,11 +1630,12 @@ void garbageCollect(MemoryState* state, bool force) {
   if (state->gcErgonomics) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
-      increaseGcThreshold(state);
+      increaseGcThreshold(state,
+        gcToComputeRatio > 3 && state->gcThreshold < std::numeric_limits<size_t>::max() / 2);
       GC_LOG("Adjusting GC threshold to %d\n", state->gcThreshold);
     }
   }
-  GC_LOG("GC: duration=%lld sinceLast=%lld\n", (gcEndTime - gcStartTime), gcStartTime - state->lastGcTimestamp);
+  GC_LOG("GC: gcToComputeRatio=%f duration=%lld sinceLast=%lld\n", double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1), (gcEndTime - gcStartTime), gcStartTime - state->lastGcTimestamp);
   state->lastGcTimestamp = gcEndTime;
 
 #if TRACE_MEMORY
@@ -1923,9 +1924,11 @@ void updateHeapRefIfNull(ObjHeader** location, const ObjHeader* object) {
 }
 
 inline void checkIfGcNeeded(MemoryState* state) {
-  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold) {
+  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold &&
+    state->toRelease->size() >= state->allocSinceLastGc / 2) {
     // To avoid GC trashing check that at least 10ms passed since last GC.
     if (konan::getTimeMicros() - state->lastGcTimestamp > 10 * 1000) {
+      GC_LOG("Calling GC from checkIfGcNeeded: %d\n", state->toRelease->size())
       garbageCollect(state, false);
     }
   }
