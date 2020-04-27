@@ -1631,7 +1631,7 @@ void garbageCollect(MemoryState* state, bool force) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
       increaseGcThreshold(state,
-        gcToComputeRatio > 3 && state->gcThreshold < std::numeric_limits<size_t>::max() / 2);
+        gcToComputeRatio > 3 && state->gcThreshold < SIZE_MAX / 2);
       GC_LOG("Adjusting GC threshold to %d\n", state->gcThreshold);
     }
   }
