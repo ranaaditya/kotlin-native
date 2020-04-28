@@ -93,6 +93,14 @@ constexpr size_t kMaxToFreeSize = 8 * 1024;
 constexpr size_t kFinalizerQueueThreshold = 32;
 // If allocated that much memory since last GC - force new GC.
 constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
+// If GC to computations time ratio is above that value,
+// increase GC threshold more aggressively.
+constexpr int kGcHighLoadRatio = 3;
+// If GC duration is longer than current threshold and
+// computations time ratio is high, it means that there are much more
+// needed objects than garbage to collect.
+constexpr int kGcDurationThreshold = 10000;
+
 #endif  // USE_GC
 
 typedef KStdUnorderedSet<ContainerHeader*> ContainerHeaderSet;
@@ -1632,7 +1640,8 @@ void garbageCollect(MemoryState* state, bool force) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
       increaseGcThreshold(state,
-        gcToComputeRatio > 3 && gcEndTime - gcStartTime > 10000 && state->gcThreshold < INT_MAX / 2);
+        gcToComputeRatio > kGcHighLoadRatio && (gcEndTime - gcStartTime) > kGcDurationThreshold &&
+        state->gcThreshold < INT_MAX / 2);
       GC_LOG("Adjusting GC threshold to %d\n", state->gcThreshold);
     }
   }
@@ -1925,8 +1934,7 @@ void updateHeapRefIfNull(ObjHeader** location, const ObjHeader* object) {
 }
 
 inline void checkIfGcNeeded(MemoryState* state) {
-  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold &&
-    state->toRelease->size() >= state->allocSinceLastGc / 2) {
+  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold) {
     // To avoid GC trashing check that at least 10ms passed since last GC.
     if (konan::getTimeMicros() - state->lastGcTimestamp > 10 * 1000) {
       GC_LOG("Calling GC from checkIfGcNeeded: %d\n", state->toRelease->size())
