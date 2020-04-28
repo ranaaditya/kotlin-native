@@ -85,13 +85,13 @@ constexpr size_t kGcThreshold = 8 * 1024;
 // increase GC threshold by 1.5 times.
 constexpr double kGcToComputeRatioThreshold = 0.5;
 // Never exceed this value when increasing GC threshold.
-constexpr size_t kMaxErgonomicThreshold = 64 * 1024;
+constexpr size_t kMaxErgonomicThreshold = 32 * 1024;
 // Threshold of size for toFree set, triggering actual cycle collector.
-constexpr size_t kMaxToFreeSize = 32 * 1024;
+constexpr size_t kMaxToFreeSize = 8 * 1024;
 // How many elements in finalizer queue allowed before cleaning it up.
 constexpr size_t kFinalizerQueueThreshold = 32;
 // If allocated that much memory since last GC - force new GC.
-constexpr size_t kMaxGcAllocThreshold = 32 * 1024 * 1024;
+constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
 #endif  // USE_GC
 
 typedef KStdUnorderedSet<ContainerHeader*> ContainerHeaderSet;
@@ -1631,7 +1631,7 @@ void garbageCollect(MemoryState* state, bool force) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
       increaseGcThreshold(state,
-        gcToComputeRatio > 3 && state->gcThreshold < SIZE_MAX / 2);
+        gcToComputeRatio > 3 && state->gcThreshold < SIZE_MAX / 4);
       GC_LOG("Adjusting GC threshold to %d\n", state->gcThreshold);
     }
   }
