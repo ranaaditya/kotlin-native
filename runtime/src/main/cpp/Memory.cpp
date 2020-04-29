@@ -100,7 +100,7 @@ constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
 // increase GC threshold for cycles collection.
 constexpr double kGcCollectCyclesLoadRatio = 0.05;
 // Minimum time of cycles collection to change thresholds.
-constexpr size_t kGcCollectCyclesMinimumDuration = 300;
+constexpr size_t kGcCollectCyclesMinimumDuration = 200;
 
 #endif  // USE_GC
 
