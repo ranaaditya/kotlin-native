@@ -86,7 +86,7 @@ constexpr size_t kGcThreshold = 8 * 1024;
 // If GC to computations time ratio is above that value,
 // increase GC threshold by 1.5 times.
 constexpr double kGcToComputeRatioThreshold = 0.5;
-// Never exceed this value when increasing GC threshold.
+// Never exceed this value when increasing GC threshold except cases with long GC duration.
 constexpr size_t kMaxErgonomicThreshold = 32 * 1024;
 // Threshold of size for toFree set, triggering actual cycle collector.
 constexpr size_t kMaxToFreeSizeThreshold = 8 * 1024;
@@ -99,6 +99,15 @@ constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
 // If GC base work to collection cycles time ratio is less this value,
 // increase GC threshold for cycles collection.
 constexpr double kGcCollectCyclesLoadRatio = 0.05;
+// If GC to computations time ratio is above that value,
+// increase GC threshold more aggressively.
+constexpr int kGcHighLoadRatio = 3;
+// If GC duration is longer than current threshold and
+// computations time ratio is high, it means that there are much more
+// needed objects than garbage to collect.
+constexpr int kGcDurationThreshold = 50000;
+// Never exceed this value when increasing GC threshold.
+constexpr size_t kAggressiveMaxErgonomicThreshold = 4 * 1024 * 1024;
 
 #endif  // USE_GC
 
@@ -1180,9 +1189,9 @@ inline void initGcCollectCyclesThreshold(MemoryState* state, uint32_t gcCollectC
   state->toFree->reserve(gcCollectCyclesThreshold);
 }
 
-inline void increaseGcThreshold(MemoryState* state) {
+inline void increaseGcThreshold(MemoryState* state, bool force = false) {
   auto newThreshold = state->gcThreshold * 3 / 2 + 1;
-  if (newThreshold <= kMaxErgonomicThreshold) {
+  if (newThreshold <= (force ? kAggressiveMaxErgonomicThreshold : kMaxErgonomicThreshold)) {
     initGcThreshold(state, newThreshold);
   }
 }
@@ -1676,7 +1685,8 @@ void garbageCollect(MemoryState* state, bool force) {
 
   if (state->gcErgonomics && collectCyclesDuration > 0 &&
     double(processFinalizerQueueDuration) / collectCyclesDuration < kGcCollectCyclesLoadRatio) {
-     increaseGcCollectCyclesThreshold(state);
+    increaseGcCollectCyclesThreshold(state);
+    GC_LOG("Adjusting GC collecting cycles threshold to %lld\n", state->gcCollectCyclesThreshold);
   }
 
   state->gcInProgress = false;
@@ -1684,7 +1694,8 @@ void garbageCollect(MemoryState* state, bool force) {
   if (state->gcErgonomics) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
-      increaseGcThreshold(state);
+      increaseGcThreshold(state, gcToComputeRatio > kGcHighLoadRatio &&
+        (gcEndTime - gcStartTime) > kGcDurationThreshold);
       GC_LOG("Adjusting GC threshold to %d\n", state->gcThreshold);
     }
   }
