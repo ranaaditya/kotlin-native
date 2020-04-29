@@ -99,7 +99,7 @@ constexpr int kGcHighLoadRatio = 3;
 // If GC duration is longer than current threshold and
 // computations time ratio is high, it means that there are much more
 // needed objects than garbage to collect.
-constexpr int kGcDurationThreshold = 10000;
+constexpr int kGcDurationThreshold = 50000;
 
 #endif  // USE_GC
 
@@ -1934,7 +1934,8 @@ void updateHeapRefIfNull(ObjHeader** location, const ObjHeader* object) {
 }
 
 inline void checkIfGcNeeded(MemoryState* state) {
-  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold) {
+  if (state != nullptr && state->allocSinceLastGc > state->allocSinceLastGcThreshold/* &&
+    state->toRelease->size() >= state->allocSinceLastGc / 2*/) {
     // To avoid GC trashing check that at least 10ms passed since last GC.
     if (konan::getTimeMicros() - state->lastGcTimestamp > 10 * 1000) {
       GC_LOG("Calling GC from checkIfGcNeeded: %d\n", state->toRelease->size())
