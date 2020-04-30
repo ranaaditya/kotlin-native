@@ -96,11 +96,11 @@ constexpr size_t kMaxErgonomicToFreeSizeThreshold = 8 * 1024 * 1024;
 constexpr size_t kFinalizerQueueThreshold = 32;
 // If allocated that much memory since last GC - force new GC.
 constexpr size_t kMaxGcAllocThreshold = 8 * 1024 * 1024;
-// If GC base work to collection cycles time ratio is less this value,
+// If GC base work to collection cycles time ratio is greater this value,
 // increase GC threshold for cycles collection.
-constexpr double kGcCollectCyclesLoadRatio = 0.05;
+constexpr double kGcCollectCyclesLoadRatio = 0.9;
 // Minimum time of cycles collection to change thresholds.
-constexpr size_t kGcCollectCyclesMinimumDuration = 100;
+constexpr size_t kGcCollectCyclesMinimumDuration = 200;
 
 #endif  // USE_GC
 
@@ -1651,10 +1651,12 @@ void garbageCollect(MemoryState* state, bool force) {
   }
 
   GC_LOG("||| GC: toFree %d toRelease %d\n", state->toFree->size(), state->toRelease->size())
-  auto processFinalizerQueueStartTime = konan::getTimeMicros();
-  processFinalizerQueue(state);
-  auto processFinalizerQueueDuration = konan::getTimeMicros() - processFinalizerQueueStartTime;
 #if PROFILE_GC
+  auto processFinalizerQueueStartTime = konan::getTimeMicros();
+#endif
+  processFinalizerQueue(state);
+#if PROFILE_GC
+  auto processFinalizerQueueDuration = konan::getTimeMicros() - processFinalizerQueueStartTime;
   GC_LOG("||| GC: processFinalizerQueueDuration %lld\n", processFinalizerQueueDuration);
 #endif
 
@@ -1666,24 +1668,23 @@ void garbageCollect(MemoryState* state, bool force) {
       collectCyclesDuration += konan::getTimeMicros() - collectCyclesStartTime;
       #if PROFILE_GC
         GC_LOG("||| GC: collectCyclesEndTime = %lld\n", collectCyclesDuration);
+        processFinalizerQueueStartTime = konan::getTimeMicros();
       #endif
-      processFinalizerQueueStartTime = konan::getTimeMicros();
       processFinalizerQueue(state);
-      processFinalizerQueueDuration += konan::getTimeMicros() - processFinalizerQueueStartTime;
       #if PROFILE_GC
+        processFinalizerQueueDuration += konan::getTimeMicros() - processFinalizerQueueStartTime;
         GC_LOG("||| GC: processFinalizerQueueDuration = %lld\n", processFinalizerQueueDuration);
       #endif
     }
   }
 
+  state->gcInProgress = false;
+  auto gcEndTime = konan::getTimeMicros();
   if (state->gcErgonomics && collectCyclesDuration > kGcCollectCyclesMinimumDuration &&
-    double(processFinalizerQueueDuration) / collectCyclesDuration < kGcCollectCyclesLoadRatio) {
+      double(collectCyclesDuration) / (gcEndTime - gcStartTime) > kGcCollectCyclesLoadRatio) {
     increaseGcCollectCyclesThreshold(state);
     GC_LOG("Adjusting GC collecting cycles threshold to %lld\n", state->gcCollectCyclesThreshold);
   }
-
-  state->gcInProgress = false;
-  auto gcEndTime = konan::getTimeMicros();
   if (state->gcErgonomics) {
     auto gcToComputeRatio = double(gcEndTime - gcStartTime) / (gcStartTime - state->lastGcTimestamp + 1);
     if (gcToComputeRatio > kGcToComputeRatioThreshold) {
