@@ -11,6 +11,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 import org.jetbrains.kotlin.konan.target.*
+import java.io.File
 
 import java.io.FileWriter
 import java.nio.file.Files
@@ -28,7 +29,7 @@ import java.nio.file.Paths
  */
 open class FrameworkTest : DefaultTask(), KonanTestExecutable {
     @Input
-    lateinit var swiftSources: FileCollection
+    lateinit var swiftSources: List<String>
 
     @Input
     lateinit var testName: String
@@ -69,7 +70,11 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
                         artifact: String = name,
                         library: String? = null,
                         opts: List<String> = emptyList()
-    ) = Framework(name, sources, bitcode, artifact, library, opts).also {
+    ) = Framework(
+            name,
+            sources.toFiles(Language.Kotlin).map { it.path },
+            bitcode, artifact, library, opts
+    ).also {
         if (!::frameworks.isInitialized) {
             frameworks = mutableListOf(it)
         } else {
@@ -84,6 +89,10 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
     fun Language.filesFrom(dir: String): FileTree = project.fileTree(dir) {
         it.include("**/*${this.extension}")
     }
+
+    fun List<String>.toFiles(language: Language): List<File> =
+            this.map { language.filesFrom(it) }
+                    .flatMap { it.files }
 
     override val executable: String
         get() {
@@ -130,7 +139,7 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         // create a test provider and get main entry point
         val provider = Paths.get(testOutput, testName, "provider.swift")
         FileWriter(provider.toFile()).use { writer ->
-            val providers = swiftSources.files
+            val providers = swiftSources.toFiles(Language.Swift)
                     .map { it.name.toString().removeSuffix(".swift").capitalize() }
                     .map { "${it}Tests" }
 
@@ -146,7 +155,8 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         val swiftMain = Paths.get(testHome.toString(), "main.swift").toString()
 
         // Compile swift sources
-        val sources = swiftSources.files.map { it.path } + listOf(provider.toString(), swiftMain)
+        val sources = swiftSources.toFiles(Language.Swift)
+                .map { it.path } + listOf(provider.toString(), swiftMain)
         val options = listOf(
                 "-g",
                 "-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks",
