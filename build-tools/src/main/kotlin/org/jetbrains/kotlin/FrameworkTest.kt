@@ -146,7 +146,7 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         val swiftMain = Paths.get(testHome.toString(), "main.swift").toString()
 
         // Compile swift sources
-        val sources = swiftSources.files.map { path } + listOf(provider.toString(), swiftMain)
+        val sources = swiftSources.files.map { it.path } + listOf(provider.toString(), swiftMain)
         val options = listOf(
                 "-g",
                 "-Xlinker", "-rpath", "-Xlinker", "@executable_path/Frameworks",
