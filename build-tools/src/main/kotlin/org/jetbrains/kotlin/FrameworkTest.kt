@@ -77,11 +77,11 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         }
     }
 
-    enum class SourcesLanguage(val extension: String) {
+    enum class Language(val extension: String) {
         Kotlin(".kt"), ObjC(".m"), Swift(".swift")
     }
 
-    fun SourcesLanguage.filesFrom(dir: String): FileTree = project.fileTree(dir) {
+    fun Language.filesFrom(dir: String): FileTree = project.fileTree(dir) {
         it.include("**/*${this.extension}")
     }
 

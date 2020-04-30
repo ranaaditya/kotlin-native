@@ -3981,7 +3981,7 @@ Task frameworkTest(String name, Closure<FrameworkTest> configurator) {
         if (task.enabled) {
             konanArtifacts {
                 task.frameworks.forEach { fr ->
-                    framework(name: fr.name, targets: [target.name]) {
+                    framework(fr.name, targets: [target.name]) {
                         fr.sources.forEach { src ->
                             srcFiles src
                         }
@@ -4010,15 +4010,13 @@ Task frameworkTest(String name, Closure<FrameworkTest> configurator) {
     }
 }
 
-FrameworkTest.SourcesLanguage.metaClass.files = { s -> delegate.filesFrom(s) }
-
 if (isAppleTarget(project)) {
     frameworkTest('testObjCExport') {
         final String frameworkName = 'Kt'
         testName = "ObjCExport"
         final String dir = "$testOutputFramework/$testName"
         final File lazyHeader = file("$dir/$target-lazy.h")
-        final List<String> ktSources = it.filesFrom(FrameworkTest.SourcesLanguage.Kotlin, 'objcexport')
+        final List<String> ktSources = it.filesFrom(FrameworkTest.Language.Kotlin, 'objcexport')
                 .getFiles()
                 *.getPath()
 
@@ -4060,14 +4058,14 @@ if (isAppleTarget(project)) {
         }
         it.createFramework(frameworkName, ktSources, false,
                 frameworkName, libraryName, ["-Xemit-lazy-objc-header=$lazyHeader"])
-        swiftSources = it.filesFrom(FrameworkTest.SourcesLanguage.Swift, 'objcexport')
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'objcexport')
     }
 
     frameworkTest('testObjCExportStatic') {
         final String frameworkName = 'KtStatic'
         final String frameworkArtifactName = 'Kt'
         final String libraryName = frameworkName + "Library"
-        final List<String> ktSources = it.filesFrom(FrameworkTest.SourcesLanguage.Kotlin, 'objcexport')
+        final List<String> ktSources = it.filesFrom(FrameworkTest.Language.Kotlin, 'objcexport')
                 .getFiles()
                 *.getPath()
 
@@ -4088,20 +4086,20 @@ if (isAppleTarget(project)) {
         testName = "ObjCExportStatic"
         codesign = false
         it.createFramework(frameworkName, ktSources, false, frameworkArtifactName, libraryName, ['-Xstatic-framework'])
-        swiftSources = it.filesFrom(FrameworkTest.SourcesLanguage.Swift, 'objcexport')
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'objcexport')
     }
 
     frameworkTest('testValuesGenericsFramework'){
         testName = 'ValuesGenerics'
-        it.createFramewrok('ValuesGenerics', ['objcexport/values.kt', 'framework/values_generics'])
-        swiftSources = it.filesFrom(FrameworkTest.SourcesLanguage.Swift, 'framework/values_generics/')
+        it.createFramework('ValuesGenerics', ['objcexport/values.kt', 'framework/values_generics'])
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'framework/values_generics/')
     }
 
     frameworkTest("testStdlibFramework") {
         testName = 'Stdlib'
         it.createFramework('Stdlib', ['framework/stdlib'], true)
         if (cacheTesting == null) fullBitcode = true
-        swiftSources = it.filesFrom(FrameworkTest.SourcesLanguage.Swift, 'framework/stdlib/')
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'framework/stdlib/')
     }
 
     if (cacheTesting != null && cacheTesting.isDynamic) {
@@ -4116,13 +4114,13 @@ if (isAppleTarget(project)) {
                 ['framework/multiple/framework2', 'framework/multiple/shared'],
                 true // bitcode
         )
-        swiftSources = it.SourcesLanguage.Swift.files('framework/multiple')
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'framework/multiple')
     }
 
     frameworkTest("testGh3343Framework") {
         testName = 'Gh3343'
-        it.createFramework('Gh3343', 'framework/gh3343', false, 'Gh3343', 'objcGh3343')
-        swiftSources = it.filesFrom(FrameworkTest.SourcesLanguage.Swift, 'framework/gh3343/')
+        it.createFramework('Gh3343', ['framework/gh3343'], false, 'Gh3343', 'objcGh3343')
+        swiftSources = it.filesFrom(FrameworkTest.Language.Swift, 'framework/gh3343/')
     }
 }
 
