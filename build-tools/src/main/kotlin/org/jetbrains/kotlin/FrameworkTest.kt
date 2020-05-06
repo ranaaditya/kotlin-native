@@ -120,9 +120,6 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         check(::testName.isInitialized) { "Test name should be set" }
         check(::frameworks.isInitialized) { "Frameworks should be set" }
 
-        // Build test executable as a first action of the task before executing the test
-        // TODO: check why is this action not in the run()?
-        this.doFirst { buildTestExecutable() }
         return this
     }
 
@@ -169,6 +166,8 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
 
     @TaskAction
     fun run() {
+        // Build test executable as a first action of the task before executing the test
+        buildTestExecutable()
         doBeforeRun?.execute(this)
         runTest(executorService = project.executor, testExecutable = Paths.get(executable))
     }
